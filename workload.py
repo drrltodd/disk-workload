@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 import shlex, argparse, cmd
-import random, time, os, sys
+import random, time, os, sys, threading
 
 ################################################################
 
@@ -244,6 +244,54 @@ class HostData(object):
 
 ################################################################
 
+class WriteTestThread(threading.Thread):
+    """Thread for testing writes."""
+
+    def __init__(self, ti, rank):
+        threading.Thread.__init__(self)
+        self.ti = ti
+        self.rank = rank
+        self.d = os.open(self.ti.device, os.O_RDWR)
+
+    def run(self):
+        """Run the thread's portion of the test."""
+        d = self.d
+        iop_size = self.ti.iop_size
+        loclist = self.ti.loclist
+        bytes = self.ti.bytes
+        for i in range(self.rank, self.ti.iop_cnt, self.ti.wthreads):
+            os.lseek(d, loclist[i], os.SEEK_SET)
+            if os.write(d, bytes[i:i+iop_size]) < iop_size:
+                print 'Short write!!!'
+                sys.exit(1)
+        os.fsync(d)
+        os.close(d)
+
+class ReadTestThread(threading.Thread):
+    """Thread for testing reads."""
+
+    def __init__(self, ti, rank):
+        threading.Thread.__init__(self)
+        self.ti = ti
+        self.rank = rank
+        self.d = os.open(self.ti.device, os.O_RDWR)
+
+    def run(self):
+        """Run the thread's portion of the test."""
+        d = self.d
+        iop_size = self.ti.iop_size
+        loclist = self.ti.loclist
+        bytes = self.ti.bytes
+        for i in range(self.rank, self.ti.iop_cnt, self.ti.rthreads):
+            os.lseek(d, loclist[i], os.SEEK_SET)
+            junk = os.read(d, iop_size)
+            if len(junk) < iop_size:
+                print 'Short read!!!'
+                sys.exit(1)
+            if junk != bytes[i:i+iop_size]:
+                print 'Read does not match! IOP #', i
+                sys.exit(1)
+        os.close(d)
 
 class TestInstance(object):
     def __init__(self, test, target, wthreads, rthreads):
@@ -347,15 +395,15 @@ class TestInstance(object):
         print 'Minimum seek = ', min(loclist)
         print 'Maximum seek = ', max(loclist)
 
+        # Set up threads for writing.
+        writers = [ WriteTestThread(self, i) for i in range(self.wthreads) ]
+
         # Perform writes.
-        d = os.open(device, os.O_RDWR)
         startw = time.time()
-        for i in range(iop_cnt):
-            os.lseek(d, loclist[i], os.SEEK_SET)
-            if os.write(d, bytes[i:i+iop_size]) < iop_size:
-                print 'Short write!!!'
-                sys.exit(1)
-        os.fsync(d)
+        for w in writers:
+            w.start()
+        for w in writers:
+            w.join()
         endw = time.time()
 
         # Print results for writing
@@ -364,17 +412,15 @@ class TestInstance(object):
               ( timeW,
                 transfer_size/timeW/1000000 )
 
+        # Set up threads for reading.
+        readers = [ ReadTestThread(self, i) for i in range(self.rthreads) ]
+
         # Perform reads.
         startr = time.time()
-        for i in range(iop_cnt):
-            os.lseek(d, loclist[i], os.SEEK_SET)
-            junk = os.read(d, iop_size)
-            if len(junk) < iop_size:
-                print 'Short read!!!'
-                sys.exit(1)
-            if junk != bytes[i:i+iop_size]:
-                print 'Read does not match! IOP #', i
-                sys.exit(1)
+        for r in readers:
+            r.start()
+        for r in readers:
+            r.join()
         endr = time.time()
 
         # Print results for reading
