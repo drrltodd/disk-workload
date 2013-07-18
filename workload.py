@@ -246,12 +246,14 @@ class HostData(object):
 
 
 class TestInstance(object):
-    def __init__(self, test, target):
+    def __init__(self, test, target, wthreads, rthreads):
         """Build an instance that conducts the different phases of
         testing."""
 
         self.testname = test.testname
         self.targetname = target.target
+        self.wthreads = wthreads
+        self.rthreads = rthreads
         self.device = target.device
         self.dev_length = target.dev_length
         self.transfer_size = test.transfer_size
@@ -391,6 +393,10 @@ class RunTests(object):
             description='Run I/O tests.')
         p.add_argument('test', type=str, help='Name of a test')
         p.add_argument('target', type=str, help='Name of target')
+        p.add_argument('--wthreads', type=int, default=1,
+                       help='Number of threads for writing')
+        p.add_argument('--rthreads', type=int, default=1,
+                       help='Number of threads for reading')
         return p
     
     def __init__(self, n, targets, tests):
@@ -406,7 +412,7 @@ class RunTests(object):
             sys.exit(1)
 
         # Create the test object.
-        self.ti = TestInstance(test, target)
+        self.ti = TestInstance(test, target, n.wthreads, n.rthreads)
 
     def run_test(self):
         """Run the test """
