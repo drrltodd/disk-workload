@@ -507,6 +507,9 @@ class IOTester(cmd.Cmd):
             # Command is finished here
             res = self._cmd + line
             self._cmd = ''
+            lres = res.lstrip()
+            if lres != '' and lres[0] == '#':
+                return ''
             return res
         if line != '':
             # Continued command (ends with backslash)
