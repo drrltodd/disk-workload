@@ -244,14 +244,24 @@ class HostData(object):
 
 ################################################################
 
-class WriteTestThread(threading.Thread):
-    """Thread for testing writes."""
+class BaseTestThread(threading.Thread):
+    """Base class for test threads."""
 
     def __init__(self, ti, rank):
         threading.Thread.__init__(self)
+        self.daemon = True
         self.ti = ti
         self.rank = rank
         self.d = os.open(self.ti.device, os.O_RDWR)
+
+    def wait_join(self):
+        """Wait for the thread to stop, handling signals."""
+        while self.is_alive():
+            self.join(1)
+
+
+class WriteTestThread(BaseTestThread):
+    """Thread for testing writes."""
 
     def run(self):
         """Run the thread's portion of the test."""
@@ -267,14 +277,8 @@ class WriteTestThread(threading.Thread):
         os.fsync(d)
         os.close(d)
 
-class ReadTestThread(threading.Thread):
+class ReadTestThread(BaseTestThread):
     """Thread for testing reads."""
-
-    def __init__(self, ti, rank):
-        threading.Thread.__init__(self)
-        self.ti = ti
-        self.rank = rank
-        self.d = os.open(self.ti.device, os.O_RDWR)
 
     def run(self):
         """Run the thread's portion of the test."""
@@ -403,7 +407,7 @@ class TestInstance(object):
         for w in writers:
             w.start()
         for w in writers:
-            w.join()
+            w.wait_join()
         endw = time.time()
 
         # Print results for writing
@@ -420,7 +424,7 @@ class TestInstance(object):
         for r in readers:
             r.start()
         for r in readers:
-            r.join()
+            r.wait_join()
         endr = time.time()
 
         # Print results for reading
