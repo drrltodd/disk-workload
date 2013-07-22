@@ -319,6 +319,8 @@ class TestInstance(object):
         self.rthreads = rthreads
         self.device = target.device
         self.dev_length = target.dev_length
+        self.segment_len = target.segment_len
+        self.stripe_len = target.stripe_len
         self.transfer_size = test.transfer_size
         if test.block_size is not None:
             self.block_size = test.block_size
@@ -402,6 +404,12 @@ class TestInstance(object):
                       % (Conversions.int2datasize(block_size),))
         outfile.write('transfer_size = %s\n'
                       % (Conversions.int2datasize(transfer_size),))
+        outfile.write('segment_len = %s\n'
+                      % (Conversions.int2datasize(self.segment_len),))
+        outfile.write('stripe_len = %s\n'
+                      % (Conversions.int2datasize(self.stripe_len),))
+        outfile.write('misalignment = %s\n'
+                      % (Conversions.int2datasize(self.misalignment),))
         outfile.write('scheduler = %s\n' % (self.scheduler,))
         if self.hwtransfer is None:
             outfile.write('hwtransfer = \n')
