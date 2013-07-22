@@ -529,6 +529,8 @@ class IOTester(cmd.Cmd):
                 self.prompt = '____ '
         return stop
 
+    # "exit"
+
     def do_exit(self, cs):
         return True
     do_EOF = do_exit
@@ -539,10 +541,14 @@ class IOTester(cmd.Cmd):
         print 'Exit from iot'
     help_EOF = help_exit
 
+    # "define"
+
     def do_define(self, cs):
         L = shlex.split(cs)
         try:
             n = self.ap_parse_define.parse_args(L)
+        except SystemExit as e:
+            return False
         except:
             return True
         n.func(n)
@@ -560,10 +566,14 @@ class IOTester(cmd.Cmd):
     def _do_define_host(self, n):
         self.hosts[n.hostname] = HostData(n)
 
+    # "run"
+
     def do_run(self, cs):
         L = shlex.split(cs)
         try:
             n = self.ap_parse_run.parse_args(L)
+        except SystemExit as e:
+            return False
         except:
             return True
         r = RunTests(n, self.targets, self.tests)
