@@ -154,22 +154,32 @@ class TargetData(object):
             'device', type=str,
             help='path to device')
         p.add_argument(
-            '--segment', type=Conversions.datasize2int, required=True,
-            help='segment length on each disk of array')
-        p.add_argument(
             '--size', type=Conversions.datasize2int, required=True,
             help='size of the disk array')
         p.add_argument(
             '--count', type=int, default=1,
             help='number of data disks in disk array')
+        # Stripe/segment size
+        g = p.add_mutually_exclusive_group(required=True)
+        g.add_argument(
+            '--segment', type=Conversions.datasize2int,
+            help='segment length on each disk of array')
+        g.add_argument(
+            '--stripe', type=Conversions.datasize2int,
+            help='stripe size of the array')
         return p
 
     def __init__(self, n):
         self.target = n.target
         self.device = n.device
-        self.segment_len = n.segment
         self.dev_length = n.size
         self.data_disks = n.count
+        if n.segment is not None:
+            self.segment_len = n.segment
+            self.stripe_len = n.count * n.segment
+        else:
+            self.stripe_len = n.stripe
+            self.segment_len = n.stripe / n.count
 
 ################################################################
 
@@ -594,6 +604,7 @@ def main():
     n = p.parse_args()
     t = IOTester(n.cmdfile)
     t.cmdloop()
+    sys.exit(0)
 
-
-main()
+if __name__ == '__main__':
+    main()
