@@ -429,7 +429,7 @@ class TestInstance(object):
 
         # Print results for writing
         timeW = endw - startw
-        outfile.write('write time = %g seconds  (%g MiB/sec)' % \
+        outfile.write('write time = %g seconds  (%g MiB/sec)\n' % \
                       ( timeW,
                         transfer_size/timeW/1000000 ) )
 
@@ -446,7 +446,7 @@ class TestInstance(object):
 
         # Print results for reading
         timeR = endr - startr
-        outfile.write('read time = %g seconds  (%g MiB/sec)' % \
+        outfile.write('read time = %g seconds  (%g MiB/sec)\n' % \
                       ( timeR,
                         transfer_size/timeR/1000000 ) )
 
