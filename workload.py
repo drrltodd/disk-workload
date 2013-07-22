@@ -308,12 +308,13 @@ class ReadTestThread(BaseTestThread):
         os.close(d)
 
 class TestInstance(object):
-    def __init__(self, test, target, wthreads, rthreads):
+    def __init__(self, test, target, outfile, wthreads, rthreads):
         """Build an instance that conducts the different phases of
         testing."""
 
         self.testname = test.testname
         self.targetname = target.target
+        self.outfile = outfile
         self.wthreads = wthreads
         self.rthreads = rthreads
         self.device = target.device
@@ -383,6 +384,7 @@ class TestInstance(object):
     def run_test(self):
 
         # Get values
+        outfile = self.outfile
         iop_size = self.iop_size
         iop_cnt = self.iop_cnt
         block_size = self.block_size
@@ -392,22 +394,27 @@ class TestInstance(object):
         device = self.device
 
         # Print some information about the test.
-        print '\n\nTest %s on target %s' % (self.testname, self.targetname)
-        print 'Device = ', device
-        print 'iop_size = ', Conversions.int2datasize(iop_size)
-        print 'block_size = ', Conversions.int2datasize(block_size)
-        print 'transfer_size = ', Conversions.int2datasize(transfer_size)
-        print 'scheduler = ', self.scheduler
+        outfile.write('\n\nTest %s on target %s\n' 
+                      % (self.testname, self.targetname))
+        outfile.write('Device = %s\n' % (device,))
+        outfile.write('iop_size = %s\n' % (Conversions.int2datasize(iop_size),))
+        outfile.write('block_size = %s\n'
+                      % (Conversions.int2datasize(block_size),))
+        outfile.write('transfer_size = %s\n'
+                      % (Conversions.int2datasize(transfer_size),))
+        outfile.write('scheduler = %s\n' % (self.scheduler,))
         if self.hwtransfer is None:
-            print 'hwtransfer = '
+            outfile.write('hwtransfer = \n')
         else:
-            print 'hwtransfer = ', Conversions.int2datasize(self.hwtransfer)
+            outfile.write('hwtransfer = %s\n'
+                          % (Conversions.int2datasize(self.hwtransfer),))
         if self.hwreadahead is None:
-            print 'hwreadahead = '
+            outfile.write('hwreadahead = \n')
         else:
-            print 'hwreadahead = ', Conversions.int2datasize(self.hwreadahead)
-        print 'Minimum seek = ', min(loclist)
-        print 'Maximum seek = ', max(loclist)
+            outfile.write('hwreadahead = %s\n'
+                          % (Conversions.int2datasize(self.hwreadahead),))
+        outfile.write('Minimum seek = %s\n' % (min(loclist),))
+        outfile.write('Maximum seek = %s\n' % (max(loclist),))
 
         # Set up threads for writing.
         writers = [ WriteTestThread(self, i) for i in range(self.wthreads) ]
@@ -422,9 +429,9 @@ class TestInstance(object):
 
         # Print results for writing
         timeW = endw - startw
-        print 'write time = %g seconds  (%g MiB/sec)' % \
-              ( timeW,
-                transfer_size/timeW/1000000 )
+        outfile.write('write time = %g seconds  (%g MiB/sec)' % \
+                      ( timeW,
+                        transfer_size/timeW/1000000 ) )
 
         # Set up threads for reading.
         readers = [ ReadTestThread(self, i) for i in range(self.rthreads) ]
@@ -439,9 +446,9 @@ class TestInstance(object):
 
         # Print results for reading
         timeR = endr - startr
-        print 'read time = %g seconds  (%g MiB/sec)' % \
-              ( timeR,
-                transfer_size/timeR/1000000 ) 
+        outfile.write('read time = %g seconds  (%g MiB/sec)' % \
+                      ( timeR,
+                        transfer_size/timeR/1000000 ) )
 
 ################################################################
 
@@ -459,7 +466,7 @@ class RunTests(object):
                        help='Number of threads for reading')
         return p
     
-    def __init__(self, n, targets, tests):
+    def __init__(self, n, targets, tests, outfile):
         try:
             test = tests[n.test]
         except:
@@ -472,7 +479,8 @@ class RunTests(object):
             sys.exit(1)
 
         # Create the test object.
-        self.ti = TestInstance(test, target, n.wthreads, n.rthreads)
+        self.ti = TestInstance(test, target, outfile,
+                               n.wthreads, n.rthreads)
 
     def run_test(self):
         """Run the test """
@@ -486,7 +494,7 @@ class RunTests(object):
 
 class IOTester(cmd.Cmd):
 
-    def __init__(self, cmdfile):
+    def __init__(self, cmdfile, outfile):
         # Create parsers
         ap = self.ap_parse_define = argparse.ArgumentParser(
             prog='define',
@@ -511,6 +519,7 @@ class IOTester(cmd.Cmd):
         self.targets = {}
         self.tests = {}
         self.hosts = {}
+        self.outfile = outfile
 
     def emptyline(self):
         return False
@@ -586,8 +595,7 @@ class IOTester(cmd.Cmd):
             return False
         except:
             return True
-        r = RunTests(n, self.targets, self.tests)
-        #print r
+        r = RunTests(n, self.targets, self.tests, self.outfile)
         r.run_test()
         return False
 
@@ -600,9 +608,11 @@ def main():
     # Define command line parser.
     p = argparse.ArgumentParser(description='Test I/O device performance.')
     p.add_argument('cmdfile', type=argparse.FileType('r'),
-                   nargs='?', default=sys.stdin)
+                   nargs='?', default='-')
+    p.add_argument('--output', type=argparse.FileType('w'), default='-',
+                   help='File for output of test results')
     n = p.parse_args()
-    t = IOTester(n.cmdfile)
+    t = IOTester(n.cmdfile, n.output)
     t.cmdloop()
     sys.exit(0)
 
