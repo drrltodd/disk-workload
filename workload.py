@@ -452,12 +452,12 @@ class TestInstance(object):
 
 ################################################################
 
-class RunTests(object):
+class RunTest(object):
     @staticmethod
     def build_parser(cmdname):
         p = argparse.ArgumentParser(
             prog=cmdname,
-            description='Run I/O tests.')
+            description='Run I/O test.')
         p.add_argument('test', type=str, help='Name of a test')
         p.add_argument('target', type=str, help='Name of target')
         p.add_argument('--wthreads', type=int, default=1,
@@ -483,7 +483,7 @@ class RunTests(object):
                                n.wthreads, n.rthreads)
 
     def run_test(self):
-        """Run the test """
+        """Run the test."""
 
         self.ti.prep_test()
         self.ti.run_test()
@@ -507,7 +507,7 @@ class IOTester(cmd.Cmd):
         p.set_defaults(func=self._do_define_test)
         p = HostData.build_parser(sp, 'host')
         p.set_defaults(func=self._do_define_host)
-        self.ap_parse_run = RunTests.build_parser('run')
+        self.ap_parse_run = RunTest.build_parser('run')
         self._cmd = ''
         cmd.Cmd.__init__(self, stdin=cmdfile)
         if cmdfile != sys.stdin:
@@ -595,7 +595,7 @@ class IOTester(cmd.Cmd):
             return False
         except:
             return True
-        r = RunTests(n, self.targets, self.tests, self.outfile)
+        r = RunTest(n, self.targets, self.tests, self.outfile)
         r.run_test()
         return False
 
