@@ -279,11 +279,16 @@ class WriteTestThread(BaseTestThread):
         iop_size = self.ti.iop_size
         loclist = self.ti.loclist
         bytes = self.ti.bytes
+        outfile = self.ti.outfile
+        fails = 0
         for i in range(self.rank, self.ti.iop_cnt, self.ti.wthreads):
             os.lseek(d, loclist[i], os.SEEK_SET)
             if os.write(d, bytes[i:i+iop_size]) < iop_size:
-                print 'Short write!!!'
-                sys.exit(1)
+                outfile.write('Short write!!! IOP #%i\n' % (i,))
+                fails += 1
+                # We might want this to be configurable
+                if fails > 3:
+                    break
         os.fsync(d)
         os.close(d)
 
@@ -296,15 +301,22 @@ class ReadTestThread(BaseTestThread):
         iop_size = self.ti.iop_size
         loclist = self.ti.loclist
         bytes = self.ti.bytes
+        outfile = self.ti.outfile
+        fails = 0
         for i in range(self.rank, self.ti.iop_cnt, self.ti.rthreads):
             os.lseek(d, loclist[i], os.SEEK_SET)
             junk = os.read(d, iop_size)
             if len(junk) < iop_size:
-                print 'Short read!!!'
-                sys.exit(1)
+                outfile.write('Short read!!! IOP %i\n' % (i,))
+                fails += 1
+                if fails > 3:
+                    break
+                continue
             if junk != bytes[i:i+iop_size]:
-                print 'Read does not match! IOP #', i
-                sys.exit(1)
+                outfile.write('Read does not match! IOP # %i\n' % (i,))
+                fails += 1
+                if fails > 3:
+                    break
         os.close(d)
 
 class TestInstance(object):
