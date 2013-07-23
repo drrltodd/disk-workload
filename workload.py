@@ -1,7 +1,8 @@
 #! /usr/bin/env python
 
 import shlex, argparse, cmd
-import random, time, os, sys, threading
+import random, time, os, sys
+import multiprocessing
 
 ################################################################
 
@@ -254,11 +255,11 @@ class HostData(object):
 
 ################################################################
 
-class BaseTestThread(threading.Thread):
+class BaseTestThread(multiprocessing.Process):
     """Base class for test threads."""
 
     def __init__(self, ti, rank):
-        threading.Thread.__init__(self)
+        multiprocessing.Process.__init__(self)
         self.daemon = True
         self.ti = ti
         self.rank = rank
