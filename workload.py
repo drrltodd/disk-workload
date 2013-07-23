@@ -276,14 +276,15 @@ class WriteTestThread(BaseTestThread):
     def run(self):
         """Run the thread's portion of the test."""
         d = self.d
-        iop_size = self.ti.iop_size
-        loclist = self.ti.loclist
-        bytes = self.ti.bytes
-        outfile = self.ti.outfile
+        ti = self.ti
+        iop_size = ti.iop_size
+        loclist = ti.loclist
+        outfile = ti.outfile
         fails = 0
         for i in range(self.rank, self.ti.iop_cnt, self.ti.wthreads):
-            os.lseek(d, loclist[i], os.SEEK_SET)
-            if os.write(d, bytes[i:i+iop_size]) < iop_size:
+            loc = loclist[i]
+            os.lseek(d, loc, os.SEEK_SET)
+            if os.write(d, ti.iop_bytes(loc)) < iop_size:
                 outfile.write('Short write!!! IOP #%i\n' % (i,))
                 fails += 1
                 # We might want this to be configurable
@@ -298,13 +299,14 @@ class ReadTestThread(BaseTestThread):
     def run(self):
         """Run the thread's portion of the test."""
         d = self.d
-        iop_size = self.ti.iop_size
-        loclist = self.ti.loclist
-        bytes = self.ti.bytes
-        outfile = self.ti.outfile
+        ti = self.ti
+        iop_size = ti.iop_size
+        loclist = ti.loclist
+        outfile = ti.outfile
         fails = 0
         for i in range(self.rank, self.ti.iop_cnt, self.ti.rthreads):
-            os.lseek(d, loclist[i], os.SEEK_SET)
+            loc = loclist[i]
+            os.lseek(d, loc, os.SEEK_SET)
             junk = os.read(d, iop_size)
             if len(junk) < iop_size:
                 outfile.write('Short read!!! IOP %i\n' % (i,))
@@ -312,7 +314,7 @@ class ReadTestThread(BaseTestThread):
                 if fails > 3:
                     break
                 continue
-            if junk != bytes[i:i+iop_size]:
+            if junk != ti.iop_bytes(loc):
                 outfile.write('Read does not match! IOP # %i\n' % (i,))
                 fails += 1
                 if fails > 3:
@@ -350,12 +352,41 @@ class TestInstance(object):
         self.iop_cnt = self.transfer_size / self.iop_size
 
     def generate_random_bytes(self):
-        """Generate some random data for writing."""
+        """Generate and store some random data for writing."""
         bytes = []
         for i in range(self.iop_size + self.iop_cnt):
             bytes.append( chr(random.randint(0,255)) )
         bytes = ''.join(bytes)
         self.bytes = bytes
+
+    def iop_bytes(self, loc):
+        """Using the byte store, get bytes for this IOP.
+
+        We need to make sure that overlapping bytes will somehow get
+        the same pattern."""
+
+        iop_size = self.iop_size
+        bytes = self.bytes
+        bl = len(bytes)
+        block_size = self.block_size
+        res = ''
+
+        while len(res) < iop_size:
+            # Figure out what block we are in, and initial offset in block.
+            start = loc + len(res)
+            bn = start / block_size
+            offset = start % block_size
+            require = min( (iop_size - len(res)), (block_size-offset) )
+
+            # Figure out an initial offset in bytes, based on bn.
+            bo = (37*bn + offset) % bl
+
+            # Build a result
+            ra = bytes[bo:require]
+            if len(ra) < require:
+                ra += bytes[0:require - len(ra)]
+            res += ra
+        return res
 
     def generate_random_positions(self):
         """Generate a set of positions for random I/O testing"""
@@ -435,6 +466,7 @@ class TestInstance(object):
                           % (Conversions.int2datasize(self.hwreadahead),))
         outfile.write('Minimum seek = %s\n' % (min(loclist),))
         outfile.write('Maximum seek = %s\n' % (max(loclist),))
+        outfile.flush()
 
         # Set up threads for writing.
         writers = [ WriteTestThread(self, i) for i in range(self.wthreads) ]
@@ -452,6 +484,7 @@ class TestInstance(object):
         outfile.write('write time = %g seconds  (%g MiB/sec)\n' % \
                       ( timeW,
                         transfer_size/timeW/1000000 ) )
+        outfile.flush()
 
         # Set up threads for reading.
         readers = [ ReadTestThread(self, i) for i in range(self.rthreads) ]
@@ -469,6 +502,7 @@ class TestInstance(object):
         outfile.write('read time = %g seconds  (%g MiB/sec)\n' % \
                       ( timeR,
                         transfer_size/timeR/1000000 ) )
+        outfile.flush()
 
 ################################################################
 
