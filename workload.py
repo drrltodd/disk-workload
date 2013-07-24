@@ -3,6 +3,7 @@
 import shlex, argparse, cmd
 import random, time, os, sys
 import multiprocessing
+import signal
 
 ################################################################
 
@@ -281,8 +282,11 @@ class WriteTestThread(BaseTestThread):
         iop_size = ti.iop_size
         loclist = ti.loclist
         outfile = ti.outfile
+        stop_event = ti.stop_event
         fails = 0
         for i in range(self.rank, self.ti.iop_cnt, self.ti.wthreads):
+            if stop_event.is_set():
+                break
             loc = loclist[i]
             os.lseek(d, loc, os.SEEK_SET)
             if os.write(d, ti.iop_bytes(loc)) < iop_size:
@@ -291,7 +295,8 @@ class WriteTestThread(BaseTestThread):
                 # We might want this to be configurable
                 if fails > 3:
                     break
-        os.fsync(d)
+        if not stop_event.is_set():
+            os.fsync(d)
         os.close(d)
 
 class ReadTestThread(BaseTestThread):
@@ -304,8 +309,11 @@ class ReadTestThread(BaseTestThread):
         iop_size = ti.iop_size
         loclist = ti.loclist
         outfile = ti.outfile
+        stop_event = ti.stop_event
         fails = 0
         for i in range(self.rank, self.ti.iop_cnt, self.ti.rthreads):
+            if stop_event.is_set():
+                break
             loc = loclist[i]
             os.lseek(d, loc, os.SEEK_SET)
             junk = os.read(d, iop_size)
@@ -351,6 +359,7 @@ class TestInstance(object):
         self.hwreadahead = test.hwreadahead
         #
         self.iop_cnt = self.transfer_size / self.iop_size
+        self.stop_event = None
 
     def generate_random_bytes(self):
         """Generate and store some random data for writing."""
@@ -472,41 +481,61 @@ class TestInstance(object):
         outfile.write('Maximum seek = %s\n' % (max(loclist),))
         outfile.flush()
 
-        # Set up threads for writing.
-        writers = [ WriteTestThread(self, i) for i in range(self.wthreads) ]
+        # Set up event for interrupts.
+        self.stop_event = multiprocessing.Event()
+        self.def_handler = signal.getsignal(signal.SIGINT)
+        try:
+            signal.signal(signal.SIGINT, self.int_handler)
 
-        # Perform writes.
-        startw = time.time()
-        for w in writers:
-            w.start()
-        for w in writers:
-            w.wait_join()
-        endw = time.time()
+            # Set up threads for writing.
+            writers = [ WriteTestThread(self, i) for i in range(self.wthreads) ]
 
-        # Print results for writing
-        timeW = endw - startw
-        outfile.write('write time = %g seconds  (%g MiB/sec)\n' % \
-                      ( timeW,
-                        transfer_size/timeW/1000000 ) )
-        outfile.flush()
+            # Perform writes.
+            startw = time.time()
+            for w in writers:
+                w.start()
+            for w in writers:
+                w.wait_join()
+            endw = time.time()
 
-        # Set up threads for reading.
-        readers = [ ReadTestThread(self, i) for i in range(self.rthreads) ]
+            # Print results for writing
+            timeW = endw - startw
+            outfile.write('write time = %g seconds  (%g MiB/sec)\n' % \
+                          ( timeW,
+                            transfer_size/timeW/1000000 ) )
+            outfile.flush()
+            if self.stop_event.is_set():
+                return
 
-        # Perform reads.
-        startr = time.time()
-        for r in readers:
-            r.start()
-        for r in readers:
-            r.wait_join()
-        endr = time.time()
+            # Set up threads for reading.
+            readers = [ ReadTestThread(self, i) for i in range(self.rthreads) ]
 
-        # Print results for reading
-        timeR = endr - startr
-        outfile.write('read time = %g seconds  (%g MiB/sec)\n' % \
-                      ( timeR,
-                        transfer_size/timeR/1000000 ) )
-        outfile.flush()
+            # Perform reads.
+            startr = time.time()
+            for r in readers:
+                r.start()
+            for r in readers:
+                r.wait_join()
+            endr = time.time()
+
+            # Print results for reading
+            timeR = endr - startr
+            outfile.write('read time = %g seconds  (%g MiB/sec)\n' % \
+                          ( timeR,
+                            transfer_size/timeR/1000000 ) )
+            outfile.flush()
+            return
+
+        finally:
+            signal.signal(signal.SIGINT, self.def_handler)
+            self.stop_event = None
+
+    def int_handler(self, signum, frame):
+        """Handle keyboard interrupts."""
+        if self.stop_event is not None:
+            self.stop_event.set()
+        else:
+            self.def_handler(signum, frame)
 
 ################################################################
 
