@@ -466,6 +466,8 @@ class TestInstance(object):
         else:
             outfile.write('hwreadahead = %s\n'
                           % (Conversions.int2datasize(self.hwreadahead),))
+        outfile.write('wthreads = %d\n' % (self.wthreads,))
+        outfile.write('rthreads = %d\n' % (self.rthreads,))
         outfile.write('Minimum seek = %s\n' % (min(loclist),))
         outfile.write('Maximum seek = %s\n' % (max(loclist),))
         outfile.flush()
