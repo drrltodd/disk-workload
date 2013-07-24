@@ -442,6 +442,7 @@ class TestInstance(object):
         # Print some information about the test.
         outfile.write('\n\nTest %s on target %s\n' 
                       % (self.testname, self.targetname))
+        outfile.write('Date = %s\n' % ( time.ctime(), ))
         outfile.write('Device = %s\n' % (device,))
         outfile.write('iop_size = %s\n' % (Conversions.int2datasize(iop_size),))
         outfile.write('block_size = %s\n'
