@@ -555,7 +555,7 @@ class RunTest(object):
     
     def __init__(self, n, targets, tests, outfile):
         """Initialize the object representing a test+target."""
-        self.using = True
+        self.usable = True
         try:
             test = tests[n.test]
         except:
