@@ -554,26 +554,29 @@ class RunTest(object):
         return p
     
     def __init__(self, n, targets, tests, outfile):
+        """Initialize the object representing a test+target."""
+        self.using = True
         try:
             test = tests[n.test]
         except:
-            sys.stderr('Unknown test %s\n' % (n.test,))
-            sys.exit(1)
+            sys.stderr.write('Unknown test %s\n' % (n.test,))
+            self.usable = False
         try:
             target = targets[n.target]
         except:
-            sys.stderr('Unknown target %s\n' % (n.target,))
-            sys.exit(1)
+            sys.stderr.write('Unknown target %s\n' % (n.target,))
+            self.usable = False
 
         # Create the test object.
-        self.ti = TestInstance(test, target, outfile,
-                               n.wthreads, n.rthreads)
+        if self.usable:
+            self.ti = TestInstance(test, target, outfile,
+                                   n.wthreads, n.rthreads)
 
     def run_test(self):
         """Run the test."""
-
-        self.ti.prep_test()
-        self.ti.run_test()
+        if self.usable:
+            self.ti.prep_test()
+            self.ti.run_test()
         
 
 ################################################################
