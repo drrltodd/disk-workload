@@ -336,6 +336,8 @@ class ReadTestThread(BaseTestThread):
         os.close(d)
 
 class TestInstance(object):
+    """Implement an I/O test instance."""
+
     def __init__(self, test, target, outfile, wthreads, rthreads):
         """Build an instance that conducts the different phases of
         testing."""
@@ -545,6 +547,9 @@ class TestInstance(object):
 ################################################################
 
 class RunTest(object):
+    """Implement an invocation of a test (a test object applied to
+    data objects)."""
+
     @staticmethod
     def build_parser(cmdname):
         p = argparse.ArgumentParser(
@@ -588,6 +593,16 @@ class RunTest(object):
 
 
 class IOTester(cmd.Cmd):
+    """Command interpreter for the I/O workload tester.
+
+    This uses the Python cmd module to parse commands.  We subvert it
+    a bit to work better from scripts, but prefer it to shlex since it
+    allows us to (potentially) provide CLI features such as command
+    completion.
+
+    The argparse module is used to parse arguments to individual
+    commands, as well as subcommands.  It too is somewhat subverted to
+    work better with scripts."""
 
     def __init__(self, cmdfile, outfile):
         # Create parsers
