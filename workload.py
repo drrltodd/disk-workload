@@ -139,6 +139,11 @@ class BlockDeviceOps(object):
         """Set the I/O readahead size to the device"""
         cls.set_io_variable(dev, 'queue/read_ahead_kb', s)
 
+    @classmethod
+    def set_io_deadline_fifo_batch(cls, dev, s):
+        """Set the deadline scheduler fifo batch size."""
+        cls.set_io_variable(dev, 'queue/iosched/fifo_batch', s)
+
 
 ################################################################
 
