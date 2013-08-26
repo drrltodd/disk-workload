@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import shlex, argparse, cmd
+import logging
 import random, time, os, sys
 import multiprocessing
 import signal
@@ -113,8 +114,7 @@ class BlockDeviceOps(object):
         dev = os.path.realpath(dev)
         key = os.path.basename(dev)
         if not os.path.isdir('/sys/block/' + key):
-            sys.stderr.write('Unable to manipulate I/O tunable %s for %s\n'
-                             % (var, dev) )
+            logging.warn('Unable to manipulate I/O tunable %s for %s', var, dev)
             return
         # We need to manage slave settings first.
         for s in glob.iglob('/sys/block/'+key+'/slaves/*'):
@@ -295,7 +295,7 @@ class WriteTestThread(BaseTestThread):
             loc = loclist[i]
             os.lseek(d, loc, os.SEEK_SET)
             if os.write(d, ti.iop_bytes(loc)) < iop_size:
-                outfile.write('Short write!!! IOP #%i\n' % (i,))
+                logging.warn('Short write!!! IOP #%i', i)
                 fails += 1
                 # We might want this to be configurable
                 if fails > 3:
@@ -323,13 +323,13 @@ class ReadTestThread(BaseTestThread):
             os.lseek(d, loc, os.SEEK_SET)
             junk = os.read(d, iop_size)
             if len(junk) < iop_size:
-                outfile.write('Short read!!! IOP %i\n' % (i,))
+                logging.warn('Short read!!! IOP %i', i)
                 fails += 1
                 if fails > 3:
                     break
                 continue
             if junk != ti.iop_bytes(loc):
-                outfile.write('Read does not match! IOP # %i\n' % (i,))
+                logging.warn('Read does not match! IOP # %i', i)
                 fails += 1
                 if fails > 3:
                     break
@@ -569,12 +569,12 @@ class RunTest(object):
         try:
             test = tests[n.test]
         except:
-            sys.stderr.write('Unknown test %s\n' % (n.test,))
+            logging.error('Unknown test %s', n.test)
             self.usable = False
         try:
             target = targets[n.target]
         except:
-            sys.stderr.write('Unknown target %s\n' % (n.target,))
+            logging.error('Unknown target %s', n.target)
             self.usable = False
 
         # Create the test object.
@@ -714,6 +714,9 @@ class IOTester(cmd.Cmd):
 
 
 def main():
+
+    # Set up logging.
+    logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
 
     # Define command line parser.
     p = argparse.ArgumentParser(description='Test I/O device performance.')
