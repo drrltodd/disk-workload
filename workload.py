@@ -396,6 +396,7 @@ class TestInstance(object):
             require = min( (iop_size - len(res)), (block_size-offset) )
 
             # Figure out an initial offset in bytes, based on bn.
+            # This is a bit arbitrary.
             bo = (37*bn + offset) % bl
 
             # Build a result
